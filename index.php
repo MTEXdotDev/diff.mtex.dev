@@ -6,8 +6,30 @@ $config = require 'config.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $config['APP_NAME'] ?> // A visual comparison tool for JSON payloads and code.</title>
     
+    <title><?= $config['APP_NAME'] ?> // Visual JSON & Code Diff Tool</title>
+    <meta name="title" content="<?= $config['APP_NAME'] ?> // Visual JSON & Code Diff Tool">
+    <meta name="description" content="A high-performance visual comparison tool for JSON payloads and code snippets. Features split and unified views, JSON prettification, and real-time diffing.">
+    <meta name="keywords" content="JSON Diff, Code Compare, Visual Diff, Prettify JSON, Developer Tools, MTEX, Diff Checker">
+    <meta name="author" content="MTEXdotDev">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://diff.mtex.dev/">
+    <meta property="og:title" content="<?= $config['APP_NAME'] ?> // Code Comparison">
+    <meta property="og:description" content="Compare JSON and code snippets instantly with split or unified views.">
+    <meta property="og:image" content="https://github.com/MTEXdotDev.png">
+
+    <meta property="twitter:card" content="summary">
+    <meta property="twitter:url" content="https://diff.mtex.dev/">
+    <meta property="twitter:title" content="<?= $config['APP_NAME'] ?> // Diff Tool">
+    <meta property="twitter:description" content="A lightweight, developer-first visual comparison tool for JSON and code.">
+    <meta property="twitter:image" content="https://github.com/MTEXdotDev.png">
+
+    <link rel="icon" type="image/x-icon" href="https://github.com/MTEXdotDev.png">
+    <link rel="apple-touch-icon" href="https://github.com/MTEXdotDev.png">
+    <meta name="theme-color" content="#09090b">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -19,8 +41,13 @@ $config = require 'config.php';
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
-                    colors: { zinc: { 850: '#1f2023', 900: '#18181b', 950: '#09090b' } }
+                    fontFamily: { 
+                        sans: ['Inter', 'sans-serif'], 
+                        mono: ['JetBrains Mono', 'monospace'] 
+                    },
+                    colors: { 
+                        zinc: { 850: '#1f2023', 900: '#18181b', 950: '#09090b' } 
+                    }
                 }
             }
         }
@@ -31,7 +58,15 @@ $config = require 'config.php';
         ::-webkit-scrollbar-track { background: #09090b; }
         ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
         textarea { field-sizing: content; }
+        
+        ::selection {
+            background-color: rgba(99, 102, 241, 0.3);
+            color: #e0e7ff;
+        }
+        
+        html { -webkit-text-size-adjust: 100%; }
     </style>
 </head>
 <body class="bg-zinc-950 text-zinc-300 font-sans h-screen flex flex-col overflow-hidden selection:bg-indigo-500/30 selection:text-indigo-200">
