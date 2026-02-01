@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTEX Diff | Developer Utilities</title>
+    
+    <!-- Fonts: JetBrains Mono & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- TailwindCSS (CDN for standalone usage) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        zinc: {
+                            850: '#1f2023',
+                            900: '#18181b',
+                            950: '#09090b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- JSDiff Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
+
+    <style>
+        /* Custom Scrollbar for the ecosystem feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #09090b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+        
+        /* Utility Classes for Syntax/Diff */
+        .line-num {
+            user-select: none;
+            text-align: right;
+            color: #52525b; /* zinc-600 */
+        }
+        
+        textarea {
+            field-sizing: content; /* Modern auto-height if supported */
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-300 font-sans h-screen flex flex-col overflow-hidden selection:bg-indigo-500/30 selection:text-indigo-200">
+
+    <!-- Header -->
+    <header class="h-14 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between px-4 sm:px-6 shrink-0 z-10">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-zinc-100 rounded flex items-center justify-center text-zinc-950 font-bold font-mono">M</div>
+            <h1 class="font-semibold tracking-tight text-white">MTEX Diff</h1>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">v1.0</span>
+        </div>
+        
+        <div class="flex items-center gap-3">
+             <a href="#" class="text-xs text-zinc-500 hover:text-zinc-300 transition hidden sm:block">Part of the MTEX.dev ecosystem</a>
+        </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="h-14 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between px-4 sm:px-6 shrink-0 overflow-x-auto">
+        <!-- Left Tools -->
+        <div class="flex items-center gap-2">
+            <button onclick="prettify()" class="group flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded transition text-zinc-300">
+                <svg class="w-4 h-4 text-zinc-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                Prettify JSON
+            </button>
+            <button onclick="swapContent()" class="group flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded transition text-zinc-300">
+                <svg class="w-4 h-4 text-zinc-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                Swap
+            </button>
+            <button onclick="clearInputs()" class="group flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-red-900/20 hover:text-red-400 hover:border-red-900/50 border border-transparent rounded transition text-zinc-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                Clear
+            </button>
+        </div>
+
+        <!-- Right Tools (View Toggle) -->
+        <div class="flex items-center gap-2 bg-zinc-800 p-1 rounded-md border border-zinc-700">
+            <button id="btn-split" onclick="setViewMode('split')" class="px-3 py-1 text-xs font-medium rounded bg-zinc-600 text-white shadow-sm transition">Split</button>
+            <button id="btn-unified" onclick="setViewMode('unified')" class="px-3 py-1 text-xs font-medium rounded text-zinc-400 hover:text-white transition">Unified</button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col relative overflow-hidden">
+        
+        <!-- Input Mode (Visible when typing/editing) -->
+        <div id="input-container" class="absolute inset-0 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800 bg-zinc-950 z-20">
+            <!-- Left Input -->
+            <div class="flex flex-col h-full">
+                <div class="h-8 bg-zinc-900/30 border-b border-zinc-800 flex items-center px-4 justify-between">
+                    <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Original</span>
+                    <span id="char-count-left" class="text-[10px] text-zinc-600">0 chars</span>
+                </div>
+                <textarea id="input-left" spellcheck="false" placeholder="Paste original content here..." 
+                    class="flex-1 w-full bg-zinc-950 p-4 font-mono text-sm text-zinc-300 resize-none outline-none focus:bg-zinc-900/30 transition-colors"></textarea>
+            </div>
+            
+            <!-- Right Input -->
+            <div class="flex flex-col h-full">
+                <div class="h-8 bg-zinc-900/30 border-b border-zinc-800 flex items-center px-4 justify-between">
+                    <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Modified</span>
+                    <span id="char-count-right" class="text-[10px] text-zinc-600">0 chars</span>
+                </div>
+                <textarea id="input-right" spellcheck="false" placeholder="Paste modified content here..." 
+                    class="flex-1 w-full bg-zinc-950 p-4 font-mono text-sm text-zinc-300 resize-none outline-none focus:bg-zinc-900/30 transition-colors"></textarea>
+            </div>
+        </div>
+
+        <!-- Diff Output Mode (Rendered) -->
+        <div id="diff-container" class="absolute inset-0 z-10 hidden flex-col">
+            <div class="h-8 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4">
+                <span class="text-xs text-zinc-400">Diff Result</span>
+                <button onclick="toggleEditMode()" class="text-xs text-indigo-400 hover:text-indigo-300 font-mono hover:underline">← Back to Edit</button>
+            </div>
+            
+            <!-- Split View Output -->
+            <div id="diff-output-split" class="flex-1 grid grid-cols-2 divide-x divide-zinc-800 overflow-y-auto font-mono text-sm">
+                <div id="split-left" class="bg-zinc-950/50"></div>
+                <div id="split-right" class="bg-zinc-950/50"></div>
+            </div>
+
+            <!-- Unified View Output -->
+            <div id="diff-output-unified" class="flex-1 overflow-y-auto font-mono text-sm bg-zinc-950 hidden">
+                <!-- Content injected here -->
+            </div>
+        </div>
+        
+        <!-- Generate Button Overlay (Floating) -->
+        <div id="action-bar" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 transition-all duration-300 opacity-0 translate-y-4 pointer-events-none">
+            <button onclick="computeDiff()" class="shadow-xl shadow-black/50 bg-white text-zinc-950 hover:bg-zinc-200 px-6 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 transition transform active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Compare Content
+            </button>
+        </div>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        const els = {
+            inputContainer: document.getElementById('input-container'),
+            diffContainer: document.getElementById('diff-container'),
+            inputLeft: document.getElementById('input-left'),
+            inputRight: document.getElementById('input-right'),
+            splitLeft: document.getElementById('split-left'),
+            splitRight: document.getElementById('split-right'),
+            diffOutputSplit: document.getElementById('diff-output-split'),
+            diffOutputUnified: document.getElementById('diff-output-unified'),
+            actionBar: document.getElementById('action-bar'),
+            btnSplit: document.getElementById('btn-split'),
+            btnUnified: document.getElementById('btn-unified'),
+            counts: {
+                left: document.getElementById('char-count-left'),
+                right: document.getElementById('char-count-right')
+            }
+        };
+
+        let currentMode = 'input'; // 'input' | 'diff'
+        let viewType = 'split';    // 'split' | 'unified'
+
+        // --- Event Listeners ---
+
+        // Input monitoring to show "Compare" button
+        const handleInput = () => {
+            const hasContent = els.inputLeft.value.trim() || els.inputRight.value.trim();
+            els.actionBar.classList.toggle('opacity-100', !!hasContent);
+            els.actionBar.classList.toggle('translate-y-0', !!hasContent);
+            els.actionBar.classList.toggle('pointer-events-auto', !!hasContent);
+
+            els.counts.left.textContent = `${els.inputLeft.value.length} chars`;
+            els.counts.right.textContent = `${els.inputRight.value.length} chars`;
+        };
+
+        els.inputLeft.addEventListener('input', handleInput);
+        els.inputRight.addEventListener('input', handleInput);
+
+        // Sync Scrolling for Split View
+        const syncScroll = (source, target) => {
+            if (currentMode !== 'diff' || viewType !== 'split') return;
+            target.scrollTop = source.scrollTop;
+            target.scrollLeft = source.scrollLeft;
+        };
+
+        els.splitLeft.addEventListener('scroll', () => syncScroll(els.splitLeft, els.splitRight));
+        els.splitRight.addEventListener('scroll', () => syncScroll(els.splitRight, els.splitLeft));
+
+        // --- Core Actions ---
+
+        function swapContent() {
+            const temp = els.inputLeft.value;
+            els.inputLeft.value = els.inputRight.value;
+            els.inputRight.value = temp;
+            handleInput();
+            if (currentMode === 'diff') computeDiff();
+        }
+
+        function clearInputs() {
+            els.inputLeft.value = '';
+            els.inputRight.value = '';
+            handleInput();
+            toggleEditMode(); // Return to edit mode if cleared
+        }
+
+        function prettify() {
+            const tryFormat = (el) => {
+                if (!el.value.trim()) return;
+                try {
+                    const obj = JSON.parse(el.value);
+                    el.value = JSON.stringify(obj, null, 2);
+                } catch (e) {
+                    // Fail silently or toast - keeping minimalist
+                    console.warn('Invalid JSON in input');
+                }
+            };
+            tryFormat(els.inputLeft);
+            tryFormat(els.inputRight);
+            handleInput();
+            if (currentMode === 'diff') computeDiff();
+        }
+
+        function setViewMode(mode) {
+            viewType = mode;
+            // Update Buttons
+            const activeClass = ['bg-zinc-600', 'text-white', 'shadow-sm'];
+            const inactiveClass = ['text-zinc-400', 'hover:text-white'];
+
+            if (mode === 'split') {
+                els.btnSplit.classList.add(...activeClass);
+                els.btnSplit.classList.remove(...inactiveClass);
+                els.btnUnified.classList.remove(...activeClass);
+                els.btnUnified.classList.add(...inactiveClass);
+                
+                els.diffOutputSplit.classList.remove('hidden');
+                els.diffOutputSplit.classList.add('grid'); // Ensure grid display
+                els.diffOutputUnified.classList.add('hidden');
+            } else {
+                els.btnUnified.classList.add(...activeClass);
+                els.btnUnified.classList.remove(...inactiveClass);
+                els.btnSplit.classList.remove(...activeClass);
+                els.btnSplit.classList.add(...inactiveClass);
+
+                els.diffOutputSplit.classList.add('hidden');
+                els.diffOutputSplit.classList.remove('grid');
+                els.diffOutputUnified.classList.remove('hidden');
+            }
+        }
+
+        function toggleEditMode() {
+            currentMode = 'input';
+            els.inputContainer.classList.remove('hidden');
+            els.diffContainer.classList.add('hidden');
+            els.diffContainer.classList.remove('flex');
+            els.actionBar.classList.remove('hidden');
+        }
+
+        // --- Diff Algorithm & Rendering ---
+
+        function computeDiff() {
+            const text1 = els.inputLeft.value;
+            const text2 = els.inputRight.value;
+
+            // Switch UI State
+            currentMode = 'diff';
+            els.inputContainer.classList.add('hidden');
+            els.diffContainer.classList.remove('hidden');
+            els.diffContainer.classList.add('flex');
+            els.actionBar.classList.add('hidden'); // Hide float button
+
+            // Compute using JSDiff
+            const diff = Diff.diffLines(text1, text2);
+
+            renderSplitView(diff);
+            renderUnifiedView(diff);
+        }
+
+        const escapeHtml = (unsafe) => {
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
+        function renderSplitView(diff) {
+            let leftHtml = '';
+            let rightHtml = '';
+            let leftLine = 1;
+            let rightLine = 1;
+
+            diff.forEach(part => {
+                const lines = part.value.replace(/\n$/, '').split('\n');
+                const colorClass = part.added ? 'bg-green-500/20 text-green-300' 
+                                 : part.removed ? 'bg-red-500/20 text-red-300' 
+                                 : 'text-zinc-400';
+
+                lines.forEach(line => {
+                    const safeLine = escapeHtml(line) || '&nbsp;';
+                    
+                    if (part.removed) {
+                        // Left side gets content, Right side gets empty filler
+                        leftHtml += createRow(leftLine++, safeLine, 'bg-red-900/20 text-red-300');
+                        rightHtml += createRow('', '', 'bg-zinc-950/30'); 
+                    } else if (part.added) {
+                        // Left side empty filler, Right side gets content
+                        leftHtml += createRow('', '', 'bg-zinc-950/30'); 
+                        rightHtml += createRow(rightLine++, safeLine, 'bg-green-900/20 text-green-300');
+                    } else {
+                        // Unchanged
+                        leftHtml += createRow(leftLine++, safeLine, 'hover:bg-zinc-900');
+                        rightHtml += createRow(rightLine++, safeLine, 'hover:bg-zinc-900');
+                    }
+                });
+            });
+
+            els.splitLeft.innerHTML = `<div class="w-full pb-10">${leftHtml}</div>`;
+            els.splitRight.innerHTML = `<div class="w-full pb-10">${rightHtml}</div>`;
+        }
+
+        function renderUnifiedView(diff) {
+            let html = '';
+            let oldLine = 1;
+            let newLine = 1;
+
+            diff.forEach(part => {
+                const lines = part.value.replace(/\n$/, '').split('\n');
+                lines.forEach(line => {
+                    const safeLine = escapeHtml(line);
+                    if (part.added) {
+                        html += createUnifiedRow(oldLine, newLine++, '+', safeLine, 'bg-green-900/20 text-green-300');
+                    } else if (part.removed) {
+                        html += createUnifiedRow(oldLine++, newLine, '-', safeLine, 'bg-red-900/20 text-red-300');
+                    } else {
+                        html += createUnifiedRow(oldLine++, newLine++, ' ', safeLine, 'text-zinc-400 hover:bg-zinc-900');
+                    }
+                });
+            });
+
+            els.diffOutputUnified.innerHTML = `<div class="w-full pb-10">${html}</div>`;
+        }
+
+        // Helper: Split Row Builder
+        function createRow(num, content, bgClass) {
+            return `
+                <div class="flex ${bgClass} w-full">
+                    <div class="w-12 shrink-0 select-none text-zinc-600 text-[10px] leading-6 pr-3 text-right border-r border-zinc-800/50 bg-zinc-950/20 pt-[1px] font-mono">${num}</div>
+                    <div class="pl-3 py-0.5 whitespace-pre leading-5 break-all font-mono text-sm w-full">${content}</div>
+                </div>
+            `;
+        }
+
+        // Helper: Unified Row Builder
+        function createUnifiedRow(oldNum, newNum, marker, content, bgClass) {
+            // Logic to hide line numbers if not applicable
+            const oN = marker === '+' ? '' : oldNum;
+            const nN = marker === '-' ? '' : newNum;
+
+            return `
+                <div class="flex ${bgClass} w-full">
+                    <div class="w-10 shrink-0 select-none text-zinc-600 text-[10px] leading-6 pr-2 text-right border-r border-zinc-800/50 bg-zinc-950/20 pt-[1px]">${oN}</div>
+                    <div class="w-10 shrink-0 select-none text-zinc-600 text-[10px] leading-6 pr-2 text-right border-r border-zinc-800/50 bg-zinc-950/20 pt-[1px]">${nN}</div>
+                    <div class="w-6 shrink-0 select-none text-zinc-500 text-center leading-6 opacity-50">${marker}</div>
+                    <div class="py-0.5 whitespace-pre leading-5 break-all font-mono text-sm w-full">${content}</div>
+                </div>
+            `;
+        }
+
+        // Initialize Responsive check
+        if (window.innerWidth < 768) {
+            setViewMode('unified');
+        }
+
+    </script>
+</body>
+</html>
